@@ -1,111 +1,187 @@
 package OAuth::Simple;
 
-use 5.006;
+use 5.010;
 use strict;
 use warnings;
 
+require LWP::UserAgent;
+require JSON;
+require Carp;
+
+our $VERSION = '0.05';
+
+
+sub new {
+    my $class = shift;
+    my $self = bless {@_}, $class;
+
+    Carp::croak("app_id, secret and postback required for this action")
+      unless ($self->{app_id} && $self->{secret} && $self->{postback});
+
+    $self->{ua}   ||= LWP::UserAgent->new();
+    $self->{json} ||= JSON->new;
+    return $self;
+}
+
+
+sub authorize {
+    my ($self, $url, $params) = @_;
+
+    Carp::croak("Authorize method URL required for this action") unless ($url);
+    my %params = %$params if $params && %$params;
+    $url = URI->new($url);
+    $url->query_form(
+        client_id     => $self->{app_id},
+        response_type => 'code',
+        redirect_uri  => $self->{postback},
+        %params,
+    );
+    return $url;
+}
+
+sub request_access_token {
+    my ($self, $url, $code) = @_;
+
+    Carp::croak("code and url required for this action") unless ($code && $url);
+    $url = URI->new($url);
+    $url->query_form(
+        'client_secret' => $self->{secret},
+        'client_id'     => $self->{app_id},
+        'code'          => $code,
+        'redirect_uri'  => $self->{postback},
+    );
+    my $response = $self->{ua}->get($url);
+    return 0 unless $response->is_success;
+    my $obj = $self->{json}->decode($response->content);
+
+    return $obj;
+}
+
+sub request {
+    my ( $self, $url, $access_token, $params ) = @_;
+
+    Carp::croak("url and access_token required for this action")
+      unless ($url && $access_token);
+    my %params = %$params if $params && %$params;
+    $url = URI->new($url);
+    $url->query_form(
+        access_token => $access_token,
+        %params,
+    );
+    my $response = $self->{ua}->get($url);
+    return 0 unless $response->is_success;
+    my $obj = $self->{json}->decode($response->content);
+
+    return $obj;
+}
+
+1;
+
+
+__END__
+
+=pod
+
 =head1 NAME
 
-OAuth::Simple - The great new OAuth::Simple!
-
-=head1 VERSION
-
-Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
+OAuth::Simple - Simple OAuth authorization on your site
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
-    use OAuth::Simple;
-
-    my $foo = OAuth::Simple->new();
-    ...
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
-=head1 SUBROUTINES/METHODS
-
-=head2 function1
-
-=cut
-
-sub function1 {
-}
-
-=head2 function2
-
-=cut
-
-sub function2 {
-}
-
-=head1 AUTHOR
-
-Alexander Babenko, C<< <foxcool at cpan.org> >>
-
-=head1 BUGS
-
-Please report any bugs or feature requests to C<bug-oauth-simple at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=OAuth-Simple>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
+  my $oauth = OAuth::Simple->new(
+      app_id     => 'YOUR APP ID',
+      secret     => 'YOUR APP SECRET',
+      postback   => 'POSTBACK URL',
+  );
+  my $url = $oauth->authorize( 'https://www.facebook.com/dialog/oauth', {scope => 'email'} );
+  # Your web app redirect method.
+  $self->redirect($url);
+  # Get access_token.
+  my $access = $oauth->request_access_token( 'https://graph.facebook.com/oauth/access_token', $args->{code} );
+  # Get user profile data.
+  my $profile_data = $oauth->request(
+      'https://graph.facebook.com/me',
+      $access_token,
+  );  
 
 
+=head1 DESCRIPTION
+
+Use this module for input VK OAuth authorization on your site
+
+=head1 METHODS
+
+=head2 new
+
+  my $oauth = OAuth::Simple->new(
+      app_id     => 'YOUR APP ID',
+      secret     => 'YOUR APP SECRET',
+      postback   => 'POSTBACK URL',
+  );
+
+The C<new> constructor lets you create a new B<OAuth::Simple> object.
+
+=head2 authorize
+
+	my $url = $oauth->authorize( $authorize_server_url, {option => 'value'} );
+	# Your web app redirect method.
+	$self->redirect($url);
+
+This method returns a URL, for which you want to redirect the user.
+
+=head3 Options
+
+See information about options on your OAuth server.
+
+=head3 Response
+
+Method returns URI object.
+
+=head2 request_access_token
+
+  my $access = $oauth->request_access_token( $server_url, $args->{code} );
+
+This method gets access token from OAuth server.
+
+=head3 Options
+
+code - returned in redirected get request from authorize API method.
+
+=head3 Response
+
+Method returns HASH object.
+
+=head2 request
+
+  my $profile_data = $oauth->request(
+      $api_method_url,
+      $access_token,
+      {
+	    option => 'value',
+      }
+  );
+
+This method sends requests to OAuth server.
+
+=head3 Options
+
+url (required)          - api method url;
+params (not required)   - other params;
+access_token (required) - access token.
+
+=head3 Response
+
+Method returns HASH object with requested data.
 
 
 =head1 SUPPORT
 
-You can find documentation for this module with the perldoc command.
+Github: https://github.com/Foxcool/OAuth-Simple
 
-    perldoc OAuth::Simple
+Bugs & Issues: https://github.com/Foxcool/OAuth-Simple/issues
 
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=OAuth-Simple>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/OAuth-Simple>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/OAuth-Simple>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/OAuth-Simple/>
-
-=back
-
-
-=head1 ACKNOWLEDGEMENTS
-
-
-=head1 LICENSE AND COPYRIGHT
+=head1 AUTHOR
 
 Copyright 2012 Alexander Babenko.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of either: the GNU General Public License as published
-by the Free Software Foundation; or the Artistic License.
-
-See http://dev.perl.org/licenses/ for more information.
-
-
 =cut
-
-1; # End of OAuth::Simple
