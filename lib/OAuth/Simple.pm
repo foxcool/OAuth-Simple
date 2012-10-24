@@ -51,10 +51,10 @@ sub request_access_token {
         'client_id'     => $self->{app_id},
         'code'          => $code,
         'redirect_uri'  => $self->{postback},
-        %params
+        %params,
     );
     my $response = $self->{ua}->get($url);
-    return 0 unless $response->is_success;
+#    return 0 unless $response->is_success;
     return $response->content if $raw;
     my $obj = $self->{json}->decode($response->content);
 
