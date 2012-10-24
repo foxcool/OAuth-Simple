@@ -40,8 +40,10 @@ sub authorize {
 }
 
 sub request_access_token {
-    my ($self, $url, $code) = @_;
+    my ( $self, $params ) = @_;
 
+    my %params = %$params if $params && %$params;
+    my ( $url, $code, $raw ) = delete @params{ 'url', 'code', 'raw' };
     Carp::croak("code and url required for this action") unless ($code && $url);
     $url = URI->new($url);
     $url->query_form(
@@ -49,9 +51,11 @@ sub request_access_token {
         'client_id'     => $self->{app_id},
         'code'          => $code,
         'redirect_uri'  => $self->{postback},
+        %params
     );
     my $response = $self->{ua}->get($url);
     return 0 unless $response->is_success;
+    return $response->content if $raw;
     my $obj = $self->{json}->decode($response->content);
 
     return $obj;
