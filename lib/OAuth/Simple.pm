@@ -43,8 +43,8 @@ sub request_access_token {
     my ( $self, $params ) = @_;
 
     my %params = %$params if $params && %$params;
-    my ( $url, $code, $raw ) = delete @params{ 'url', 'code', 'raw' };
-    Carp::croak("code and url required for this action") unless ($code && $url);
+    my ( $url, $code, $raw ) = @params{ 'url', 'code', 'raw' };
+    Carp::croak("code and url required for this action") unless $code && $url;
     $url = URI->new($url);
     $url->query_form(
         'client_secret' => $self->{secret},
