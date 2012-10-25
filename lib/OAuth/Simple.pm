@@ -25,17 +25,18 @@ sub new {
 
 
 sub authorize {
-    my ($self, $url, $params) = @_;
+    my ($self, $params) = @_;
 
-    Carp::croak("Authorize method URL required for this action") unless ($url);
     my %params = %$params if $params && %$params;
+    my $url = delete $params{url};
+    Carp::croak("Authorize method URL required for this action") unless ($url);
     $url = URI->new($url);
     $url->query_form(
         client_id     => $self->{app_id},
-        response_type => 'code',
         redirect_uri  => $self->{postback},
         %params,
     );
+
     return $url;
 }
 
@@ -43,8 +44,7 @@ sub request_access_token {
     my ( $self, $params ) = @_;
 
     my %params = %$params if $params && %$params;
-    die %params;
-    my ( $url, $code, $raw ) = delete @params{ 'url', 'code', 'raw' };
+    my ( $url, $code, $raw, $http_method ) = delete @params{ qw(url code raw http_method) };
     Carp::croak("code and url required for this action") unless $code && $url;
     $url = URI->new($url);
     $url->query_form(
@@ -54,30 +54,36 @@ sub request_access_token {
         'redirect_uri'  => $self->{postback},
         %params,
     );
-    my $response = $self->{ua}->get($url);
-#    return 0 unless $response->is_success;
+    my $response = $self->{ua}->request( $self->prepare_http_request($url, $http_method) );
+    return 0 unless $response->is_success;
     return $response->content if $raw;
-    my $obj = $self->{json}->decode($response->content);
-
-    return $obj;
+    return $self->{json}->decode($response->content);
 }
 
-sub request {
-    my ( $self, $url, $access_token, $params ) = @_;
+sub request_data {
+    my ( $self, $params ) = @_;
 
+    my %params = %$params if $params && %$params;
+    my ( $url, $access_token, $raw, $http_method ) = delete @params{ qw(url access_token raw http_method) };
     Carp::croak("url and access_token required for this action")
       unless ($url && $access_token);
-    my %params = %$params if $params && %$params;
     $url = URI->new($url);
     $url->query_form(
         access_token => $access_token,
         %params,
     );
-    my $response = $self->{ua}->get($url);
+    my $response = $self->{ua}->request( $self->prepare_http_request($url, $http_method) );
+    
     return 0 unless $response->is_success;
-    my $obj = $self->{json}->decode($response->content);
+    return $response->content if $raw;    
+    return $self->{json}->decode($response->content);
+}
 
-    return $obj;
+sub prepare_http_request {
+    my ( $self, $url, $method ) = @_;
+    
+    $method ||= 'GET';
+    return HTTP::Request->new( $method, $url );
 }
 
 1;
@@ -156,7 +162,7 @@ code - returned in redirected get request from authorize API method.
 
 Method returns HASH object.
 
-=head2 request
+=head2 request_data
 
   my $profile_data = $oauth->request(
       $api_method_url,
@@ -178,6 +184,9 @@ access_token (required) - access token.
 
 Method returns HASH object with requested data.
 
+=head2 prepare_http_request
+
+Returns HTTP::Request object.
 
 =head1 SUPPORT
 
