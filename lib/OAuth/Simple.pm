@@ -154,9 +154,9 @@ This method gets access token from OAuth server.
 
 =head3 Options
 
-* code         - returned in redirected get request from authorize API method;
-* raw          - do not decode JSON, return raw data;
-* http_method  - set http method: GET(default), POST, etc.
+    * code         - returned in redirected get request from authorize API method;
+    * raw          - do not decode JSON, return raw data;
+    * http_method  - set http method: GET(default), POST, etc.
 
 =head3 Response
 
@@ -164,7 +164,7 @@ Method returns HASH object.
 
 =head2 request_data
 
-  my $profile_data = $oauth->request(
+  my $profile_data = $oauth->request( {
       url          => $api_method_url,
       access_token => $access_token,
       raw          => 1,
@@ -176,11 +176,11 @@ This method sends requests to OAuth server.
 
 =head3 Options
 
-* url (required)          - api method url;
-* params (not required)   - other custom params on OAuth server;
-* access_token (required) - access token;
-* raw                     - do not decode JSON, return raw data (default 0);
-* http_method             - set http method: GET(default), POST, etc.
+    * url (required)          - api method url;
+    * params (not required)   - other custom params on OAuth server;
+    * access_token (required) - access token;
+    * raw                     - do not decode JSON, return raw data (default 0);
+    * http_method             - set http method: GET(default), POST, etc.
 
 =head3 Response
 
