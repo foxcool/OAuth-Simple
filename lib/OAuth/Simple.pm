@@ -8,7 +8,7 @@ require LWP::UserAgent;
 require JSON;
 require Carp;
 
-our $VERSION = '0.05';
+our $VERSION = '0.15';
 
 
 sub new {
@@ -104,16 +104,14 @@ OAuth::Simple - Simple OAuth authorization on your site
       secret     => 'YOUR APP SECRET',
       postback   => 'POSTBACK URL',
   );
-  my $url = $oauth->authorize( 'https://www.facebook.com/dialog/oauth', {scope => 'email'} );
+  my $url = $oauth->authorize( {url => 'https://www.facebook.com/dialog/oauth', scope => 'email', response_type => 'code'} );
   # Your web app redirect method.
   $self->redirect($url);
   # Get access_token.
-  my $access = $oauth->request_access_token( 'https://graph.facebook.com/oauth/access_token', $args->{code} );
+  # Facebook returns data not in JSON. Use the raw mode and parse.
+  my $access = $oauth->request_access_token( {url => 'https://graph.facebook.com/oauth/access_token', code => $args->{code}, raw => 1} );
   # Get user profile data.
-  my $profile_data = $oauth->request(
-      'https://graph.facebook.com/me',
-      $access_token,
-  );  
+  my $profile_data = $oauth->request_data( {url => 'https://graph.facebook.com/me', access_token => $access} );  
 
 
 =head1 DESCRIPTION
@@ -134,7 +132,7 @@ The C<new> constructor lets you create a new B<OAuth::Simple> object.
 
 =head2 authorize
 
-	my $url = $oauth->authorize( $authorize_server_url, {option => 'value'} );
+	my $url = $oauth->authorize( {url => $authorize_server_url, option => 'value'} );
 	# Your web app redirect method.
 	$self->redirect($url);
 
@@ -150,13 +148,15 @@ Method returns URI object.
 
 =head2 request_access_token
 
-  my $access = $oauth->request_access_token( $server_url, $args->{code} );
+  my $access = $oauth->request_access_token( {url => $server_url, code => $args->{code}} );
 
 This method gets access token from OAuth server.
 
 =head3 Options
 
-code - returned in redirected get request from authorize API method.
+code         - returned in redirected get request from authorize API method;
+raw          - do not decode JSON, return raw data;
+http_method  - set http method: GET(default), POST, etc.
 
 =head3 Response
 
@@ -165,10 +165,10 @@ Method returns HASH object.
 =head2 request_data
 
   my $profile_data = $oauth->request(
-      $api_method_url,
-      $access_token,
-      {
-	    option => 'value',
+      url          => $api_method_url,
+      access_token => $access_token,
+      raw          => 1,
+      http_method  => 'POST',
       }
   );
 
@@ -177,8 +177,10 @@ This method sends requests to OAuth server.
 =head3 Options
 
 url (required)          - api method url;
-params (not required)   - other params;
-access_token (required) - access token.
+params (not required)   - other custom params on OAuth server;
+access_token (required) - access token;
+raw                     - do not decode JSON, return raw data (default 0);
+http_method             - set http method: GET(default), POST, etc.
 
 =head3 Response
 
