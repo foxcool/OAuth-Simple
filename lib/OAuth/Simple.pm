@@ -198,6 +198,6 @@ Bugs & Issues: https://github.com/Foxcool/OAuth-Simple/issues
 
 =head1 AUTHOR
 
-Copyright 2012 Alexander Babenko.
+Alexander Babenko (foxcool@cpan.org) for Setup.ru (http://setup.ru)
 
 =cut
