@@ -4,11 +4,12 @@ use 5.010;
 use strict;
 use warnings;
 
+use HTTP::Request::Common;
 require LWP::UserAgent;
 require JSON;
 require Carp;
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 
 
 sub new {
@@ -20,6 +21,7 @@ sub new {
 
     $self->{ua}   ||= LWP::UserAgent->new();
     $self->{json} ||= JSON->new;
+
     return $self;
 }
 
@@ -27,7 +29,8 @@ sub new {
 sub authorize {
     my ($self, $params) = @_;
 
-    my %params = %$params if $params && %$params;
+    my %params; %params = %$params if $params && %$params;
+
     my $url = delete $params{url};
     Carp::croak("Authorize method URL required for this action") unless ($url);
     $url = URI->new($url);
@@ -43,19 +46,24 @@ sub authorize {
 sub request_access_token {
     my ( $self, $params ) = @_;
 
-    my %params = %$params if $params && %$params;
+    my %params; %params = %$params if $params && %$params;
+
     my ( $url, $code, $raw, $http_method ) = delete @params{ qw(url code raw http_method) };
     Carp::croak("code and url required for this action") unless $code && $url;
-    $url = URI->new($url);
-    $url->query_form(
-        'client_secret' => $self->{secret},
-        'client_id'     => $self->{app_id},
-        'code'          => $code,
-        'redirect_uri'  => $self->{postback},
-        %params,
-    );
-    my $response = $self->{ua}->request( $self->prepare_http_request($url, $http_method) );
-    return 0 unless $response->is_success;
+
+    my $response = $self->{ua}->request($self->prepare_http_request(
+        url         => $url,
+        http_method => $http_method,
+        params      => {
+            client_secret => $self->{secret},
+            client_id     => $self->{app_id},
+            code          => $code,
+            redirect_uri  => $self->{postback},
+            %params,
+        },
+    ));
+
+    return $response->decoded_content unless $response->is_success;
     return $response->content if $raw;
     return $self->{json}->decode($response->content);
 }
@@ -63,16 +71,21 @@ sub request_access_token {
 sub request_data {
     my ( $self, $params ) = @_;
 
-    my %params = %$params if $params && %$params;
-    my ( $url, $access_token, $raw, $http_method ) = delete @params{ qw(url access_token raw http_method) };
+    my %params; %params = %$params if $params && %$params;
+
+    my ( $url, $access_token, $raw, $http_method, $token_name ) = 
+        delete @params{ qw(url access_token raw http_method token_name) };
     Carp::croak("url and access_token required for this action")
       unless ($url && $access_token);
-    $url = URI->new($url);
-    $url->query_form(
-        access_token => $access_token,
-        %params,
-    );
-    my $response = $self->{ua}->request( $self->prepare_http_request($url, $http_method) );
+
+    my $response = $self->{ua}->request($self->prepare_http_request(
+        url         => $url,
+        http_method => $http_method,
+        params      => {
+            ($token_name || 'access_token') => $access_token,
+            %params
+        },
+    ));
     
     return 0 unless $response->is_success;
     return $response->content if $raw;    
@@ -80,11 +93,23 @@ sub request_data {
 }
 
 sub prepare_http_request {
-    my ( $self, $url, $method ) = @_;
+    my ( $self, %params ) = @_;
     
-    $method ||= 'GET';
-    return HTTP::Request->new( $method, $url );
+    $params{http_method} ||= 'GET';
+
+    my $req;
+    if ($params{http_method} eq 'GET') {
+        my $url = URI->new($params{url});
+        $url->query_form( %{$params{params}} ) if $params{params};
+        $req = GET $url;
+    }
+    else {
+        $req = POST $params{url}, $params{params};
+    }
+
+    return $req;
 }
+
 
 1;
 
@@ -169,8 +194,8 @@ Method returns HASH object.
       access_token => $access_token,
       raw          => 1,
       http_method  => 'POST',
-      }
-  );
+      token_name   => 'ouath_token',
+  });
 
 This method sends requests to OAuth server.
 
@@ -180,7 +205,8 @@ This method sends requests to OAuth server.
     * params (not required)   - other custom params on OAuth server;
     * access_token (required) - access token;
     * raw                     - do not decode JSON, return raw data (default 0);
-    * http_method             - set http method: GET(default), POST, etc.
+    * http_method             - set http method: GET(default), POST, etc;
+    * token_name              - access token parameter name (default 'access_token').
 
 =head3 Response
 
@@ -199,5 +225,13 @@ Bugs & Issues: https://github.com/Foxcool/OAuth-Simple/issues
 =head1 AUTHOR
 
 Alexander Babenko (foxcool@cpan.org) for Setup.ru (http://setup.ru)
+
+=head1 CONTRIBUTORS
+
+sugar: Anton Ukolov (aukolov@aukolov.ru)
+
+=head1 COPYRIGHT
+
+Copyright (c) 2012 - 2013 Alexander Babenko.
 
 =cut
