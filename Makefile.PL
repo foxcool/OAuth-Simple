@@ -18,6 +18,11 @@ WriteMakefile(
         'JSON'          => 0,
         'Carp'          => 0,
     },
+    META_MERGE          => {
+        resources => {
+            repository => 'https://github.com/Foxcool/OAuth-Simple',
+        },
+    },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'OAuth-Simple-*' },
 );
