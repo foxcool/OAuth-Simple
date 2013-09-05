@@ -9,7 +9,7 @@ require LWP::UserAgent;
 require JSON;
 require Carp;
 
-our $VERSION = '1.0';
+our $VERSION = '1.01';
 
 
 sub new {
