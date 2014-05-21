@@ -9,7 +9,7 @@ require LWP::UserAgent;
 require JSON;
 require Carp;
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 
 sub new {
@@ -75,14 +75,17 @@ sub request_data {
 
     my ( $url, $access_token, $raw, $http_method, $token_name ) = 
         delete @params{ qw(url access_token raw http_method token_name) };
-    Carp::croak("url and access_token required for this action")
-      unless ($url && $access_token);
+    Carp::croak("url required for this action")
+      unless ($url);
+    Carp::croak("access_token required for this action")
+      unless ($access_token || $self->{no_token});
+
 
     my $response = $self->{ua}->request($self->prepare_http_request(
         url         => $url,
         http_method => $http_method,
         params      => {
-            ($token_name || 'access_token') => $access_token,
+            $self->{no_token} ? () : ($token_name || 'access_token') => $access_token,
             %params
         },
     ));
@@ -104,7 +107,9 @@ sub prepare_http_request {
         $req = GET $url;
     }
     else {
-        $req = POST $params{url}, $params{params};
+        $req = POST $params{url},
+        $self->{headers} && %{ $self->{headers} } ? %{ $self->{headers} } : (),
+        Content => $params{params};
     }
 
     return $req;
@@ -215,6 +220,22 @@ Method returns HASH object with requested data.
 =head2 prepare_http_request
 
 Returns HTTP::Request object.
+
+=head1 OBJECT OPTIONS
+
+=head2 no_token
+
+If this parameter is 1, OAuth::Simple will not add access token parameter in request body.
+This option can be needed on working with The OAuth 2.0 Authorization Framework: Bearer Token Usage services.
+This services accepts access tokens only in special HTTP header.
+
+  OAuth::Simple->new(no_token => 1);
+
+=head2 headers
+
+Set HTTP headers, which used in prepare_http_request method.
+
+  OAuth::Simple->new( headers => { Content_Type => 'form-data' } );
 
 =head1 SUPPORT
 
