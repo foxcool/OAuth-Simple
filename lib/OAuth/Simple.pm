@@ -9,7 +9,7 @@ require LWP::UserAgent;
 require JSON;
 require Carp;
 
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 
 
 sub new {
@@ -85,7 +85,7 @@ sub request_data {
         url         => $url,
         http_method => $http_method,
         params      => {
-            $self->{no_token} ? () : ($token_name || 'access_token') => $access_token,
+            $self->{no_token} ? () : ( ($token_name || 'access_token') => $access_token ),
             %params
         },
     ));
